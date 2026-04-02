@@ -151,26 +151,6 @@ class Main(star.Star):
         logger.debug(f"[Netease Music] cmd_handler calling search_and_show with keyword: {keyword}")
         await self.search_and_show(event, keyword.strip())
 
-    @filter.regex(r"(?i)^(来.?一首|播放|听.?听|点歌|唱.?一首|来.?首)\s*([^\s].+?)(的歌|的歌曲|的音乐|歌|曲)?$")
-    async def natural_language_handler(self, event: AstrMessageEvent):
-        """Handles song requests in natural language."""
-        logger.debug(f"[Netease Music] natural_language_handler triggered - post_type: {getattr(event, 'post_type', 'N/A')}, message: {event.message_str[:50]}")
-        if hasattr(event, 'post_type') and event.post_type == 'message_sent':
-            logger.debug(f"[Netease Music] natural_language_handler skipped - message_sent detected")
-            return
-        if hasattr(event, 'user_id') and hasattr(event, 'self_id') and event.user_id == event.self_id:
-            logger.debug(f"[Netease Music] natural_language_handler skipped - self message detected")
-            return
-        if event.message_str.startswith('/'):
-            logger.debug(f"[Netease Music] natural_language_handler skipped - command format detected")
-            return
-        match = re.search(r"(?i)^(来.?一首|播放|听.?听|点歌|唱.?一首|来.?首)\s*([^\s].+?)(的歌|的歌曲|的音乐|歌|曲)?$", event.message_str)
-        if match:
-            keyword = match.group(2).strip()
-            if keyword:
-                logger.debug(f"[Netease Music] natural_language_handler calling search_and_show with keyword: {keyword}")
-                await self.search_and_show(event, keyword)
-
     @filter.regex(r"^\d+$", priority=999)
     async def number_selection_handler(self, event: AstrMessageEvent):
         """Handles user's numeric choice from the search results."""
