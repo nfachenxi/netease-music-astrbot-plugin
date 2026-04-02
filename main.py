@@ -133,6 +133,8 @@ class Main(star.Star):
     @filter.command("点歌", alias={"music", "听歌", "网易云"})
     async def cmd_handler(self, event: AstrMessageEvent, keyword: str = ""):
         """Handles the '/点歌' command."""
+        if event.is_self():
+            return
         if not keyword.strip():
             await event.send(MessageChain([Plain("主人，请告诉我您想听什么歌喵~ 例如：/点歌 Lemon")]))
             return
@@ -141,6 +143,10 @@ class Main(star.Star):
     @filter.regex(r"(?i)^(来.?一首|播放|听.?听|点歌|唱.?一首|来.?首)\s*([^\s].+?)(的歌|的歌曲|的音乐|歌|曲)?$")
     async def natural_language_handler(self, event: AstrMessageEvent):
         """Handles song requests in natural language."""
+        if event.is_self():
+            return
+        if event.message_str.startswith('/'):
+            return
         match = re.search(r"(?i)^(来.?一首|播放|听.?听|点歌|唱.?一首|来.?首)\s*([^\s].+?)(的歌|的歌曲|的音乐|歌|曲)?$", event.message_str)
         if match:
             keyword = match.group(2).strip()
@@ -150,13 +156,15 @@ class Main(star.Star):
     @filter.regex(r"^\d+$", priority=999)
     async def number_selection_handler(self, event: AstrMessageEvent):
         """Handles user's numeric choice from the search results."""
+        if event.is_self():
+            return
+        
         session_id = event.get_session_id()
         if session_id not in self.waiting_users:
             return
 
         user_session = self.waiting_users[session_id]
         if time.time() > user_session["expire"]:
-            # Let the periodic cleanup handle the removal
             return
 
         try:
