@@ -133,7 +133,7 @@ class Main(star.Star):
     @filter.command("点歌", alias={"music", "听歌", "网易云"})
     async def cmd_handler(self, event: AstrMessageEvent, keyword: str = ""):
         """Handles the '/点歌' command."""
-        if event.is_self():
+        if hasattr(event, 'post_type') and event.post_type == 'message_sent':
             return
         if not keyword.strip():
             await event.send(MessageChain([Plain("主人，请告诉我您想听什么歌喵~ 例如：/点歌 Lemon")]))
@@ -143,7 +143,7 @@ class Main(star.Star):
     @filter.regex(r"(?i)^(来.?一首|播放|听.?听|点歌|唱.?一首|来.?首)\s*([^\s].+?)(的歌|的歌曲|的音乐|歌|曲)?$")
     async def natural_language_handler(self, event: AstrMessageEvent):
         """Handles song requests in natural language."""
-        if event.is_self():
+        if hasattr(event, 'post_type') and event.post_type == 'message_sent':
             return
         if event.message_str.startswith('/'):
             return
@@ -156,7 +156,7 @@ class Main(star.Star):
     @filter.regex(r"^\d+$", priority=999)
     async def number_selection_handler(self, event: AstrMessageEvent):
         """Handles user's numeric choice from the search results."""
-        if event.is_self():
+        if hasattr(event, 'post_type') and event.post_type == 'message_sent':
             return
         
         session_id = event.get_session_id()
