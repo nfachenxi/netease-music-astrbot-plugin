@@ -133,30 +133,48 @@ class Main(star.Star):
     @filter.command("点歌", alias={"music", "听歌", "网易云"})
     async def cmd_handler(self, event: AstrMessageEvent, keyword: str = ""):
         """Handles the '/点歌' command."""
+        logger.debug(f"[Netease Music] cmd_handler triggered - post_type: {getattr(event, 'post_type', 'N/A')}, user_id: {getattr(event, 'user_id', 'N/A')}, self_id: {getattr(event, 'self_id', 'N/A')}")
         if hasattr(event, 'post_type') and event.post_type == 'message_sent':
+            logger.debug(f"[Netease Music] cmd_handler skipped - message_sent detected")
+            return
+        if hasattr(event, 'user_id') and hasattr(event, 'self_id') and event.user_id == event.self_id:
+            logger.debug(f"[Netease Music] cmd_handler skipped - self message detected")
             return
         if not keyword.strip():
             await event.send(MessageChain([Plain("主人，请告诉我您想听什么歌喵~ 例如：/点歌 Lemon")]))
             return
+        logger.debug(f"[Netease Music] cmd_handler calling search_and_show with keyword: {keyword}")
         await self.search_and_show(event, keyword.strip())
 
     @filter.regex(r"(?i)^(来.?一首|播放|听.?听|点歌|唱.?一首|来.?首)\s*([^\s].+?)(的歌|的歌曲|的音乐|歌|曲)?$")
     async def natural_language_handler(self, event: AstrMessageEvent):
         """Handles song requests in natural language."""
+        logger.debug(f"[Netease Music] natural_language_handler triggered - post_type: {getattr(event, 'post_type', 'N/A')}, message: {event.message_str[:50]}")
         if hasattr(event, 'post_type') and event.post_type == 'message_sent':
+            logger.debug(f"[Netease Music] natural_language_handler skipped - message_sent detected")
+            return
+        if hasattr(event, 'user_id') and hasattr(event, 'self_id') and event.user_id == event.self_id:
+            logger.debug(f"[Netease Music] natural_language_handler skipped - self message detected")
             return
         if event.message_str.startswith('/'):
+            logger.debug(f"[Netease Music] natural_language_handler skipped - command format detected")
             return
         match = re.search(r"(?i)^(来.?一首|播放|听.?听|点歌|唱.?一首|来.?首)\s*([^\s].+?)(的歌|的歌曲|的音乐|歌|曲)?$", event.message_str)
         if match:
             keyword = match.group(2).strip()
             if keyword:
+                logger.debug(f"[Netease Music] natural_language_handler calling search_and_show with keyword: {keyword}")
                 await self.search_and_show(event, keyword)
 
     @filter.regex(r"^\d+$", priority=999)
     async def number_selection_handler(self, event: AstrMessageEvent):
         """Handles user's numeric choice from the search results."""
+        logger.debug(f"[Netease Music] number_selection_handler triggered - post_type: {getattr(event, 'post_type', 'N/A')}, message: {event.message_str}")
         if hasattr(event, 'post_type') and event.post_type == 'message_sent':
+            logger.debug(f"[Netease Music] number_selection_handler skipped - message_sent detected")
+            return
+        if hasattr(event, 'user_id') and hasattr(event, 'self_id') and event.user_id == event.self_id:
+            logger.debug(f"[Netease Music] number_selection_handler skipped - self message detected")
             return
         
         session_id = event.get_session_id()
@@ -176,6 +194,7 @@ class Main(star.Star):
         if not (1 <= num <= limit):
             return
 
+        logger.debug(f"[Netease Music] number_selection_handler calling play_selected_song with num: {num}")
         event.stop_event()
         await self.play_selected_song(event, user_session["key"], num)
         
@@ -186,6 +205,7 @@ class Main(star.Star):
 
     async def search_and_show(self, event: AstrMessageEvent, keyword: str):
         """Searches for songs and displays the results to the user."""
+        logger.debug(f"[Netease Music] search_and_show called with keyword: {keyword}")
         try:
             songs = await self.api.search_songs(keyword, self.config["search_limit"])
         except Exception as e:
@@ -208,7 +228,9 @@ class Main(star.Star):
             dur_str = f"{duration_ms//60000}:{(duration_ms%60000)//1000:02d}"
             response_lines.append(f"{i}. {song['name']} - {artists} 《{album}》 [{dur_str}]")
 
+        logger.debug(f"[Netease Music] search_and_show sending response message")
         await event.send(MessageChain([Plain("\n".join(response_lines))]))
+        logger.debug(f"[Netease Music] search_and_show message sent successfully")
 
         self.waiting_users[event.get_session_id()] = {"key": cache_key, "expire": time.time() + 60}
 
