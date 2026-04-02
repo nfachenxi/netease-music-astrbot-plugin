@@ -83,6 +83,7 @@ class Main(star.Star):
         
         self.waiting_users: Dict[str, Dict[str, Any]] = {}
         self.song_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self.sent_messages: Dict[str, float] = {}
         
         self.http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20))
         self.api = NeteaseMusicAPI(self.config["api_url"], self.http_session)
@@ -112,7 +113,7 @@ class Main(star.Star):
     async def _periodic_cleanup(self):
         """A background task that runs periodically to clean up expired sessions."""
         while True:
-            await asyncio.sleep(60)  # Run every 60 seconds
+            await asyncio.sleep(60)
             now = time.time()
             expired_sessions = []
             
@@ -127,6 +128,10 @@ class Main(star.Star):
                         del self.waiting_users[session_id]
                     if cache_key in self.song_cache:
                         del self.song_cache[cache_key]
+            
+            expired_dedup = [k for k, v in self.sent_messages.items() if now - v > 10]
+            for k in expired_dedup:
+                del self.sent_messages[k]
 
     # --- Event Handlers ---
 
@@ -205,6 +210,15 @@ class Main(star.Star):
 
     async def search_and_show(self, event: AstrMessageEvent, keyword: str):
         """Searches for songs and displays the results to the user."""
+        session_id = event.get_session_id()
+        dedup_key = f"{session_id}_{keyword}_{int(time.time())}"
+        
+        if dedup_key in self.sent_messages and time.time() - self.sent_messages[dedup_key] < 3:
+            logger.debug(f"[Netease Music] search_and_show skipped - duplicate request detected within 3s")
+            return
+        
+        self.sent_messages[dedup_key] = time.time()
+        
         logger.debug(f"[Netease Music] search_and_show called with keyword: {keyword}")
         try:
             songs = await self.api.search_songs(keyword, self.config["search_limit"])
@@ -217,7 +231,7 @@ class Main(star.Star):
             await event.send(MessageChain([Plain(f"对不起主人...我...我没能找到「{keyword}」这首歌喵... T_T")]))
             return
 
-        cache_key = f"{event.get_session_id()}_{int(time.time())}"
+        cache_key = f"{session_id}_{int(time.time())}"
         self.song_cache[cache_key] = songs
 
         response_lines = [f"主人，我为您找到了 {len(songs)} 首歌曲喵！请回复数字告诉我您想听哪一首~"]
@@ -232,7 +246,7 @@ class Main(star.Star):
         await event.send(MessageChain([Plain("\n".join(response_lines))]))
         logger.debug(f"[Netease Music] search_and_show message sent successfully")
 
-        self.waiting_users[event.get_session_id()] = {"key": cache_key, "expire": time.time() + 60}
+        self.waiting_users[session_id] = {"key": cache_key, "expire": time.time() + 60}
 
     async def play_selected_song(self, event: AstrMessageEvent, cache_key: str, num: int):
         """Plays the song selected by the user."""
